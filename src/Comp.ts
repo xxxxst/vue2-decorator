@@ -136,7 +136,14 @@ function createInitUserComponentProxy(data: UserComponentProxyInitParam) {
 				Object.defineProperty(local, keyTmp, {
 					get: oldDefineTmp.get,
 					set: function (value) {
-						props[keyTmp].default = value;
+						if (typeof (value) == "function") {
+							props[keyTmp].type = [Function, Object, Array, String, Number, Boolean];
+							props[keyTmp].default = value;
+						} else {
+							props[keyTmp].type = [Object, Array, String, Number, Boolean, Function];
+							props[keyTmp].default = () => value;
+						}
+						// props[keyTmp].default = value;
 						Vue.set(objPropDefValueObj, keyTmp, value);
 						// console.info("set1", vm.$options && vm.$options.propsData && (obj.key in vm.$options.propsData));
 						// cancel set default value if data bound
