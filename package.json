@@ -1,0 +1,50 @@
+{
+	"name": "@xxxxst/vue2-decorator",
+	"version": "0.0.1",
+	"description": "more simple typescript decorator for vue2",
+	"main": "dist/vue2-decorator.cjs.js",
+	"module": "dist/vue2-decorator.esm.js",
+	"types": "dist/vue2-decorator.d.ts",
+	"private": false,
+	"author": "xxxxst",
+	"license": "MIT",
+	"scripts": {
+		"build:source": "cross-env CREATE_DTS=0 rollup -c",
+		"build:dts": "cross-env CREATE_DTS=1 rollup -c",
+		"build": "yarn build:source && yarn build:dts"
+	},
+	"files": [
+		"dist"
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/xxxxst/vue2-decorator.git"
+	},
+	"keywords": [
+		"vue",
+		"class",
+		"babel",
+		"typescript"
+	],
+	"dependencies": {
+		"vue-property-decorator": "^9.1.2"
+	},
+	"peerDependencies": {
+		"vue": "^2.6.11",
+		"vue-class-component": "^7.2.3"
+	},
+	"devDependencies": {
+		"@rollup/plugin-commonjs": "^17.0.0",
+		"@rollup/plugin-json": "^4.1.0",
+		"@rollup/plugin-node-resolve": "^11.1.0",
+		"cross-env": "^7.0.3",
+		"rollup": "^2.38.0",
+		"rollup-plugin-cleandir": "^1.0.0",
+		"rollup-plugin-dts": "3.0.1",
+		"rollup-plugin-peer-deps-external": "^2.2.4",
+		"rollup-plugin-terser": "^7.0.2",
+		"rollup-plugin-typescript2": "^0.29.0",
+		"tslib": "^2.1.0",
+		"typescript": "^4.1.3"
+	}
+}
