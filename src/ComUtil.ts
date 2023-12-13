@@ -13,42 +13,42 @@ export default class ComUtil {
 		return key.substr(this.providePrefix.length);
 	}
 
-	static registProvideAttrToUserComp(local, vm, orgKey) {
-		// var orgKey = ComUtil.getOriginProvideKey(key);
-		// if (!orgKey) {
-		// 	return;
-		// }
+	// static registProvideAttrToUserComp(local, vm, orgKey) {
+	// 	// var orgKey = ComUtil.getOriginProvideKey(key);
+	// 	// if (!orgKey) {
+	// 	// 	return;
+	// 	// }
 
-		Object.defineProperty(local, orgKey, {
-			get: function get() {
-				return vm[orgKey];
-			},
-			set: function set(value) {
-				vm[orgKey] = value;
-			},
-			configurable: true
-		});
-	}
+	// 	Object.defineProperty(local, orgKey, {
+	// 		get: function get() {
+	// 			return vm[orgKey];
+	// 		},
+	// 		set: function set(value) {
+	// 			vm[orgKey] = value;
+	// 		},
+	// 		configurable: true
+	// 	});
+	// }
 
-	static registProvideAttrToVueComp(proto, key, option) {
-		if (!option || !option.default || typeof (option.default) != "object") {
-			return;
-		}
-		var orgKey = ComUtil.getOriginProvideKey(key);
-		if (!orgKey) {
-			return;
-		}
-		Object.defineProperty(proto, orgKey, {
-			get: function get() {
-				var md = (key in this) ? this[key] : option.default;
-				return md.data;
-			},
-			set: function set(val) {
-				var md = (key in this) ? this[key] : option.default;
-				md.data = val;
-			},
-			configurable: true,
-			enumerable: true,
-		});
-	}
+	// static registProvideAttrToVueComp(proto, key, option) {
+	// 	if (!option || !option.default || typeof (option.default) != "object") {
+	// 		return;
+	// 	}
+	// 	var orgKey = ComUtil.getOriginProvideKey(key);
+	// 	if (!orgKey) {
+	// 		return;
+	// 	}
+	// 	Object.defineProperty(proto, orgKey, {
+	// 		get: function get() {
+	// 			var md = (key in this) ? this[key] : option.default;
+	// 			return md.data;
+	// 		},
+	// 		set: function set(val) {
+	// 			var md = (key in this) ? this[key] : option.default;
+	// 			md.data = val;
+	// 		},
+	// 		configurable: true,
+	// 		enumerable: true,
+	// 	});
+	// }
 }

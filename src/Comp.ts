@@ -59,22 +59,26 @@ function createInitUserComponentProxy(data: UserComponentProxyInitParam) {
 			return def;
 		}
 
-		// provide
-		if (options.provide && typeof (options.provide) == "function" && options.provide["originProvide"]) {
-			var objProvide = options.provide["originProvide"];
-			// proxy orgKey get/set
-			for (var key in objProvide) {
-				if (typeof (objProvide[key]) != "object" || !objProvide[key].default) {
-					continue;
-				}
-				var orgKey = ComUtil.getOriginProvideKey(key);
-				if (!orgKey) {
-					continue;
-				}
-				// arrProxyKeys.push({ key: orgKey, type: "provide" });
-				ComUtil.registProvideAttrToUserComp(local, vm, orgKey);
-			}
+		function vset(obj, key, val) {
+			Vue["set"] ? Vue["set"](obj, key, val) : (obj[key] = val);
 		}
+
+		// provide
+		// if (options.provide && typeof (options.provide) == "function" && options.provide["originProvide"]) {
+		// 	var objProvide = options.provide["originProvide"];
+		// 	// proxy orgKey get/set
+		// 	for (var key in objProvide) {
+		// 		if (typeof (objProvide[key]) != "object" || !objProvide[key].default) {
+		// 			continue;
+		// 		}
+		// 		var orgKey = ComUtil.getOriginProvideKey(key);
+		// 		if (!orgKey) {
+		// 			continue;
+		// 		}
+		// 		// arrProxyKeys.push({ key: orgKey, type: "provide" });
+		// 		ComUtil.registProvideAttrToUserComp(local, vm, orgKey);
+		// 	}
+		// }
 
 		// inject
 		if (options.inject) {
@@ -84,25 +88,48 @@ function createInitUserComponentProxy(data: UserComponentProxyInitParam) {
 				if (!orgKey) {
 					continue;
 				}
-				// arrProxyKeys.push({ key: orgKey, type: "inject" });
-				ComUtil.registProvideAttrToUserComp(local, vm, orgKey);
-
-				var oldDefine = getCheckDefine(local, orgKey);
-				if (!oldDefine) {
-					continue;
-				}
-				arrOldDefine.push({ key: orgKey, obj: oldDefine, });
-				(function (nkeyTmp, keyTmp, oldDefineTmp) {
-					Object.defineProperty(local, keyTmp, {
-						get: oldDefineTmp.get,
-						set: function (value) {
-							if (!vm[nkeyTmp] || typeof (vm[nkeyTmp]) != "object" || vm[nkeyTmp].type != "inject") {
-								return;
-							}
-							oldDefineTmp.set.call(this, value);
-						}
+				// vset(objPropDefValueObj, key, objInject[key].default);
+				
+				((keyTmp, orgKeyTmp) => {
+					Object.defineProperty(local, orgKeyTmp, {
+						get: function get() {
+							try {
+								var md = vm[keyTmp];
+								return md && md.data;
+							} catch (ex) { }
+						},
+						set: function set(val) {
+							try {
+								var md = vm[keyTmp];
+								if (md && md.type == "inject") {
+									md.data = val;
+								}
+							} catch (ex) { }
+						},
+						configurable: true,
+						enumerable: true,
 					});
-				})(key, orgKey, oldDefine);
+				})(key, orgKey);
+
+				// // arrProxyKeys.push({ key: orgKey, type: "inject" });
+				// ComUtil.registProvideAttrToUserComp(local, vm, orgKey);
+
+				// var oldDefine = getCheckDefine(local, orgKey);
+				// if (!oldDefine) {
+				// 	continue;
+				// }
+				// arrOldDefine.push({ key: orgKey, obj: oldDefine, });
+				// (function (nkeyTmp, keyTmp, oldDefineTmp) {
+				// 	Object.defineProperty(local, keyTmp, {
+				// 		get: oldDefineTmp.get,
+				// 		set: function (value) {
+				// 			if (!vm[nkeyTmp] || typeof (vm[nkeyTmp]) != "object" || vm[nkeyTmp].type != "inject") {
+				// 				return;
+				// 			}
+				// 			oldDefineTmp.set.call(this, value);
+				// 		}
+				// 	});
+				// })(key, orgKey, oldDefine);
 			}
 		}
 
@@ -114,7 +141,7 @@ function createInitUserComponentProxy(data: UserComponentProxyInitParam) {
 			if (typeof (props[key]) != "object" || !("default" in props[key])) {
 				continue;
 			}
-			Vue.set(objPropDefValueObj, key, props[key].default);
+			vset(objPropDefValueObj, key, props[key].default);
 
 			// arrProxyKeys.push({
 			// 	key: key,
@@ -144,7 +171,7 @@ function createInitUserComponentProxy(data: UserComponentProxyInitParam) {
 							props[keyTmp].default = () => value;
 						}
 						// props[keyTmp].default = value;
-						Vue.set(objPropDefValueObj, keyTmp, value);
+						vset(objPropDefValueObj, keyTmp, value);
 						// console.info("set1", vm.$options && vm.$options.propsData && (obj.key in vm.$options.propsData));
 						// cancel set default value if data bound
 						if (vm.$options && vm.$options.propsData && (keyTmp in vm.$options.propsData)) {
@@ -253,17 +280,29 @@ export default function Comp<V extends Vue>(comps?: Record<string, VueComponent>
 		UserComponentProxy.prototype = UserComponent.prototype;
 		UserComponentProxy._componentTag = UserComponent.name;
 
+		function vset(obj, key, val) {
+			Vue["set"] ? Vue["set"](obj, key, val) : (obj[key] = val);
+		}
+
 		createDecorator(function (componentOptions, k) {
 			// provide
+			function makeProvide(vm, key) {
+				var orgKey = ComUtil.getOriginProvideKey(key);
+				return {
+					get data() { return vm[orgKey] },
+					set data(val) { vset(vm, orgKey, val); },
+					type: "provide"
+				};
+			}
 			if (options.provide && typeof (options.provide) == "object") {
 				var objProvide = options.provide;
+				var map = {};
 				options.provide = function (this: any) {
-					var map = {};
 					for (var key in objProvide) {
-						map[key] = objProvide[key].default;
+						map[key] = makeProvide(this, key);
 					}
 					return map;
-				}
+				};
 				options.provide["originProvide"] = objProvide;
 			}
 		})(UserComponentProxy as any);
@@ -294,7 +333,7 @@ export default function Comp<V extends Vue>(comps?: Record<string, VueComponent>
 						set: function set(this: any, value) {
 							if (!this.$options || !this.$options.propsData || !(keyTmp in this.$options.propsData)) {
 								var obj = this[propDefaultValueKey] || (this[propDefaultValueKey] = Vue.observable({}));
-								obj && Vue.set(obj, keyTmp, value);
+								obj && vset(obj, keyTmp, value);
 								return;
 							}
 							this.$emit("update:" + keyTmp, value);
@@ -307,19 +346,46 @@ export default function Comp<V extends Vue>(comps?: Record<string, VueComponent>
 		}
 
 		// provide
-		if (options.provide && typeof (options.provide) == "function" && options.provide["originProvide"]) {
-			var objProvide = options.provide["originProvide"];
-			// proxy orgKey get/set
-			for (var key in objProvide) {
-				ComUtil.registProvideAttrToVueComp(OriginVueComp.prototype, key, objProvide[key]);
-			}
-		}
+		// if (options.provide && typeof (options.provide) == "function" && options.provide["originProvide"]) {
+		// 	var objProvide = options.provide["originProvide"];
+		// 	// proxy orgKey get/set
+		// 	for (var key in objProvide) {
+		// 		ComUtil.registProvideAttrToVueComp(OriginVueComp.prototype, key, objProvide[key]);
+		// 	}
+			
+		// 	(options.mixins || (options.mixins = [])).push({
+		// 		data(this: any) {
+		// 			var map = {};
+		// 			for (var key in objProvide) {
+		// 				map[key] = this[key];
+		// 			}
+		// 			return map;
+		// 		}
+		// 	});
+		// }
 
 		// inject
 		if (options.inject) {
 			var objInject = options.inject;
 			for (var key in objInject) {
-				ComUtil.registProvideAttrToVueComp(OriginVueComp.prototype, key, objInject[key]);
+				((keyTmp) => {
+					var orgKey = ComUtil.getOriginProvideKey(key);
+					Object.defineProperty(OriginVueComp.prototype, orgKey, {
+						get: function get() {
+							var md = this[keyTmp];
+							return md && md.data;
+						},
+						set: function set(val) {
+							var md = this[keyTmp];
+							if (md) {
+								md.data = val;
+							}
+						},
+						configurable: true,
+						enumerable: true,
+					});
+				})(key);
+				// ComUtil.registProvideAttrToVueComp(OriginVueComp.prototype, key, objInject[key]);
 			}
 		}
 
