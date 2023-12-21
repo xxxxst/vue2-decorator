@@ -63,23 +63,6 @@ function createInitUserComponentProxy(data: UserComponentProxyInitParam) {
 			Vue["set"] ? Vue["set"](obj, key, val) : (obj[key] = val);
 		}
 
-		// provide
-		// if (options.provide && typeof (options.provide) == "function" && options.provide["originProvide"]) {
-		// 	var objProvide = options.provide["originProvide"];
-		// 	// proxy orgKey get/set
-		// 	for (var key in objProvide) {
-		// 		if (typeof (objProvide[key]) != "object" || !objProvide[key].default) {
-		// 			continue;
-		// 		}
-		// 		var orgKey = ComUtil.getOriginProvideKey(key);
-		// 		if (!orgKey) {
-		// 			continue;
-		// 		}
-		// 		// arrProxyKeys.push({ key: orgKey, type: "provide" });
-		// 		ComUtil.registProvideAttrToUserComp(local, vm, orgKey);
-		// 	}
-		// }
-
 		// inject
 		if (options.inject) {
 			var objInject = options.inject;
@@ -110,26 +93,6 @@ function createInitUserComponentProxy(data: UserComponentProxyInitParam) {
 						enumerable: true,
 					});
 				})(key, orgKey);
-
-				// // arrProxyKeys.push({ key: orgKey, type: "inject" });
-				// ComUtil.registProvideAttrToUserComp(local, vm, orgKey);
-
-				// var oldDefine = getCheckDefine(local, orgKey);
-				// if (!oldDefine) {
-				// 	continue;
-				// }
-				// arrOldDefine.push({ key: orgKey, obj: oldDefine, });
-				// (function (nkeyTmp, keyTmp, oldDefineTmp) {
-				// 	Object.defineProperty(local, keyTmp, {
-				// 		get: oldDefineTmp.get,
-				// 		set: function (value) {
-				// 			if (!vm[nkeyTmp] || typeof (vm[nkeyTmp]) != "object" || vm[nkeyTmp].type != "inject") {
-				// 				return;
-				// 			}
-				// 			oldDefineTmp.set.call(this, value);
-				// 		}
-				// 	});
-				// })(key, orgKey, oldDefine);
 			}
 		}
 
@@ -142,14 +105,6 @@ function createInitUserComponentProxy(data: UserComponentProxyInitParam) {
 				continue;
 			}
 			vset(objPropDefValueObj, key, props[key].default);
-
-			// arrProxyKeys.push({
-			// 	key: key,
-			// 	type: "prop",
-			// 	handler: function (obj, defVal) {
-			// 		props[obj.key].default = defVal;
-			// 	}
-			// });
 
 			// 在set选择器中判断该属性是否存在默认值
 			// 如果存在，说明该属性已经跟其他值绑定，拒绝初始化赋值
@@ -170,9 +125,7 @@ function createInitUserComponentProxy(data: UserComponentProxyInitParam) {
 							props[keyTmp].type = [Object, Array, String, Number, Boolean, Function];
 							props[keyTmp].default = () => value;
 						}
-						// props[keyTmp].default = value;
 						vset(objPropDefValueObj, keyTmp, value);
-						// console.info("set1", vm.$options && vm.$options.propsData && (obj.key in vm.$options.propsData));
 						// cancel set default value if data bound
 						if (vm.$options && vm.$options.propsData && (keyTmp in vm.$options.propsData)) {
 							return;
@@ -182,55 +135,6 @@ function createInitUserComponentProxy(data: UserComponentProxyInitParam) {
 				});
 			})(key, oldDefine);
 		}
-
-		// proxy props/provide/inject
-		// for (var i = 0; i < arrProxyKeys.length; ++i) {
-		// 	var attrName = arrProxyKeys[i].key;
-		// 	var oldDefine = Object.getOwnPropertyDescriptor(local, attrName);
-		// 	if (!oldDefine || !oldDefine.get || !oldDefine.set || !oldDefine.configurable) {
-		// 		continue;
-		// 	}
-		// 	arrOldDefine.push({
-		// 		key: attrName,
-		// 		obj: oldDefine,
-		// 	});
-		// 	// console.info("aaa", attrName, oldDefine);
-		// 	(function (obj, oldDefineTmp) {
-		// 		Object.defineProperty(local, obj.key, {
-		// 			get: oldDefineTmp.get,
-		// 			set: function (value) {
-		// 				switch (obj.type) {
-		// 					case "prop": {
-		// 						props[obj.key].default = value;
-		// 						Vue.set(objPropDefValueObj, obj.key, value);
-		// 						// console.info("set1", vm.$options && vm.$options.propsData && (obj.key in vm.$options.propsData));
-		// 						// cancel set default value if data bound
-		// 						if (vm.$options && vm.$options.propsData && (obj.key in vm.$options.propsData)) {
-		// 							return;
-		// 						}
-		// 						break;
-		// 					}
-		// 					// case "provide": {
-		// 					// 	break;
-		// 					// }
-		// 					case "inject": {
-		// 						var nkey = ComUtil.formatProvideKey(obj.key);
-		// 						// console.info("set2", nkey, vm[obj.key], vm[nkey], vm);
-		// 						if (!vm[nkey] || typeof (vm[nkey]) != "object" || vm[nkey].type != obj.type) {
-		// 							return;
-		// 						}
-		// 						break;
-		// 					}
-		// 					default: {
-		// 						break;
-		// 					}
-		// 				}
-		// 				oldDefineTmp.set.call(this, value);
-		// 			},
-		// 			configurable: true,
-		// 		});
-		// 	})(arrProxyKeys[i], oldDefine);
-		// }
 	}
 }
 
@@ -306,6 +210,42 @@ export default function Comp<V extends Vue>(comps?: Record<string, VueComponent>
 				options.provide["originProvide"] = objProvide;
 			}
 		})(UserComponentProxy as any);
+		
+		// decorate options
+		var oldDecorators = UserComponentProxy.__decorators__;
+		oldDecorators && (UserComponentProxy.__decorators__ = [function() {
+			oldDecorators.forEach(fn => fn(options));
+			
+			// unmounted / beforeUnmount
+			var optTmp = options as any;
+			if (optTmp.unmounted) {
+				md.destroyed = md.unmounted;
+				delete optTmp.unmounted;
+			}
+			if (optTmp.beforeUnmount) {
+				md.beforeDestroy = md.beforeUnmount;
+				delete optTmp.beforeUnmount;
+			}
+
+			// mixins
+			var mixins = options.mixins;
+			if (mixins) {
+				for (var i = 0; i < mixins.length; ++i) {
+					if (typeof (mixins[i]) != "object") {
+						continue;
+					}
+					var md = mixins[i] as ComponentOptions<Vue> as any;
+					if (md.unmounted) {
+						md.destroyed = md.unmounted;
+						delete md.unmounted;
+					}
+					if (md.beforeUnmount) {
+						md.beforeDestroy = md.beforeUnmount;
+						delete md.beforeUnmount;
+					}
+				}
+			}
+		}]);
 
 		var OriginVueComp = Component(options)(UserComponentProxy as any) as any;
 
@@ -345,25 +285,6 @@ export default function Comp<V extends Vue>(comps?: Record<string, VueComponent>
 			}
 		}
 
-		// provide
-		// if (options.provide && typeof (options.provide) == "function" && options.provide["originProvide"]) {
-		// 	var objProvide = options.provide["originProvide"];
-		// 	// proxy orgKey get/set
-		// 	for (var key in objProvide) {
-		// 		ComUtil.registProvideAttrToVueComp(OriginVueComp.prototype, key, objProvide[key]);
-		// 	}
-			
-		// 	(options.mixins || (options.mixins = [])).push({
-		// 		data(this: any) {
-		// 			var map = {};
-		// 			for (var key in objProvide) {
-		// 				map[key] = this[key];
-		// 			}
-		// 			return map;
-		// 		}
-		// 	});
-		// }
-
 		// inject
 		if (options.inject) {
 			var objInject = options.inject;
@@ -385,37 +306,6 @@ export default function Comp<V extends Vue>(comps?: Record<string, VueComponent>
 						enumerable: true,
 					});
 				})(key);
-				// ComUtil.registProvideAttrToVueComp(OriginVueComp.prototype, key, objInject[key]);
-			}
-		}
-
-		// unmounted / beforeUnmount
-		var optTmp = options as any;
-		if (optTmp.unmounted) {
-			md.destroyed = md.unmounted;
-			delete optTmp.unmounted;
-		}
-		if (optTmp.beforeUnmount) {
-			md.beforeDestroy = md.beforeUnmount;
-			delete optTmp.beforeUnmount;
-		}
-
-		// mixins
-		var mixins = options.mixins;
-		if (mixins) {
-			for (var i = 0; i < mixins.length; ++i) {
-				if (typeof (mixins[i]) != "object") {
-					continue;
-				}
-				var md = mixins[i] as ComponentOptions<Vue> as any;
-				if (md.unmounted) {
-					md.destroyed = md.unmounted;
-					delete md.unmounted;
-				}
-				if (md.beforeUnmount) {
-					md.beforeDestroy = md.beforeUnmount;
-					delete md.beforeUnmount;
-				}
 			}
 		}
 

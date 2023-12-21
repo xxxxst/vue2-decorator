@@ -1,6 +1,6 @@
 {
 	"name": "@xxxxst/vue2-decorator",
-	"version": "0.0.3",
+	"version": "0.0.4",
 	"description": "more simple typescript decorator for vue2",
 	"main": "dist/vue2-decorator.cjs.js",
 	"module": "dist/vue2-decorator.esm.js",

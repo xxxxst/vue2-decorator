@@ -221,6 +221,36 @@ function Comp(comps, options) {
                 options.provide["originProvide"] = objProvide;
             }
         })(UserComponentProxy);
+        var oldDecorators = UserComponentProxy.__decorators__;
+        oldDecorators && (UserComponentProxy.__decorators__ = [function () {
+                oldDecorators.forEach(function (fn) { return fn(options); });
+                var optTmp = options;
+                if (optTmp.unmounted) {
+                    md.destroyed = md.unmounted;
+                    delete optTmp.unmounted;
+                }
+                if (optTmp.beforeUnmount) {
+                    md.beforeDestroy = md.beforeUnmount;
+                    delete optTmp.beforeUnmount;
+                }
+                var mixins = options.mixins;
+                if (mixins) {
+                    for (var i = 0; i < mixins.length; ++i) {
+                        if (typeof (mixins[i]) != "object") {
+                            continue;
+                        }
+                        var md = mixins[i];
+                        if (md.unmounted) {
+                            md.destroyed = md.unmounted;
+                            delete md.unmounted;
+                        }
+                        if (md.beforeUnmount) {
+                            md.beforeDestroy = md.beforeUnmount;
+                            delete md.beforeUnmount;
+                        }
+                    }
+                }
+            }]);
         var OriginVueComp = Component__default['default'](options)(UserComponentProxy);
         var props = options.props;
         if (props) {
@@ -275,32 +305,6 @@ function Comp(comps, options) {
                         enumerable: true,
                     });
                 })(key);
-            }
-        }
-        var optTmp = options;
-        if (optTmp.unmounted) {
-            md.destroyed = md.unmounted;
-            delete optTmp.unmounted;
-        }
-        if (optTmp.beforeUnmount) {
-            md.beforeDestroy = md.beforeUnmount;
-            delete optTmp.beforeUnmount;
-        }
-        var mixins = options.mixins;
-        if (mixins) {
-            for (var i = 0; i < mixins.length; ++i) {
-                if (typeof (mixins[i]) != "object") {
-                    continue;
-                }
-                var md = mixins[i];
-                if (md.unmounted) {
-                    md.destroyed = md.unmounted;
-                    delete md.unmounted;
-                }
-                if (md.beforeUnmount) {
-                    md.beforeDestroy = md.beforeUnmount;
-                    delete md.beforeUnmount;
-                }
             }
         }
         return OriginVueComp;
