@@ -47,8 +47,8 @@ class ChildComponent extends Vue {
 
     // use simple options
     // default wathch attr name is attrName + 'Changed'
-    // DEEP mean '{deep:true}', IMMEDIATE mean '{immediate:true}'
-    @Watch(DEEP|IMMEDIATE)
+    // DEEP-> {deep:true}, IMMEDIATE-> {immediate:true}, SYNC-> {sync:true}
+    @Watch(DEEP | IMMEDIATE | SYNC)
     stateValChanged() {
         console.info("stateValChanged", this.stateVal);
     }

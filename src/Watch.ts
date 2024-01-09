@@ -18,6 +18,7 @@ interface WathOption {
 
 export const DEEP = 0x1;
 export const IMMEDIATE = 0x2;
+export const SYNC = 0x4;
 
 // Function decorator
 export default function Watch(option?: WathOption | number) {
@@ -60,6 +61,10 @@ export default function Watch(option?: WathOption | number) {
 			if (option & IMMEDIATE) {
 				tmp.immediate = true;
 			}
+
+			if (option & SYNC) {
+				tmp.sync = true;
+			}
 		}
 
 		tmp.handler = descriptor.value;
@@ -78,8 +83,6 @@ export default function Watch(option?: WathOption | number) {
 				objWatch[name] = arr;
 			}
 			arr.push(tmp);
-			// (objWatch[name] || objWatch[name] = []).push(tmp);
-			// objWatch[name] = tmp;
 		})(target, key);
 	}
 }

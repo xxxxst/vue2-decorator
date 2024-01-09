@@ -12,43 +12,10 @@ export default class ComUtil {
 		}
 		return key.substr(this.providePrefix.length);
 	}
-
-	// static registProvideAttrToUserComp(local, vm, orgKey) {
-	// 	// var orgKey = ComUtil.getOriginProvideKey(key);
-	// 	// if (!orgKey) {
-	// 	// 	return;
-	// 	// }
-
-	// 	Object.defineProperty(local, orgKey, {
-	// 		get: function get() {
-	// 			return vm[orgKey];
-	// 		},
-	// 		set: function set(value) {
-	// 			vm[orgKey] = value;
-	// 		},
-	// 		configurable: true
-	// 	});
-	// }
-
-	// static registProvideAttrToVueComp(proto, key, option) {
-	// 	if (!option || !option.default || typeof (option.default) != "object") {
-	// 		return;
-	// 	}
-	// 	var orgKey = ComUtil.getOriginProvideKey(key);
-	// 	if (!orgKey) {
-	// 		return;
-	// 	}
-	// 	Object.defineProperty(proto, orgKey, {
-	// 		get: function get() {
-	// 			var md = (key in this) ? this[key] : option.default;
-	// 			return md.data;
-	// 		},
-	// 		set: function set(val) {
-	// 			var md = (key in this) ? this[key] : option.default;
-	// 			md.data = val;
-	// 		},
-	// 		configurable: true,
-	// 		enumerable: true,
-	// 	});
-	// }
+	static vset(obj, key, val) {
+		return (Vue as any).set ? (Vue as any).set(obj, key, val) : (obj[key] = val);
+	}
+	static reactive(obj) {
+		return (Vue as any).reactive ? (Vue as any).reactive(obj) : (Vue as any).observable(obj);
+	}
 }

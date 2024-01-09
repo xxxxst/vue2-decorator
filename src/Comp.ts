@@ -15,132 +15,10 @@ interface ComponentOptionsComp<T extends Vue> extends ComponentOptions<T> {
 	emits?: any[];
 }
 
-class UserComponentProxyInitParam {
-	local: any = null;
-	oldInit: Function = null;
-	options: ComponentOptionsComp<Vue> = null;
-	arrOldDefine: { key: string, obj: any }[] = [];
-}
-
-const propDefaultValueKey = "_vd_vmDefaultData";
-
-function createInitUserComponentProxy(data: UserComponentProxyInitParam) {
-	return function _init(this: any) {
-		data.local = this;
-		var local = this;
-		var options = data.options;
-		var arrOldDefine = data.arrOldDefine;
-		var oldInit = data.oldInit;
-
-		// add prop "_self"
-		var props = options.props || (options.props = {});
-		var propsSelfExist = ("_self" in props);
-		if (!propsSelfExist) {
-			props["_self"] = {
-				type: [Object, Array, String, Number, Boolean, Function],
-				default: undefined,
-			};
-		}
-
-		// call oldInit
-		oldInit.apply(this, arguments);
-
-		var vm = this._self;
-		if (!propsSelfExist) {
-			delete props["_self"];
-		}
-		// var arrProxyKeys = [];
-
-		function getCheckDefine(obj, key) {
-			var def = Object.getOwnPropertyDescriptor(obj, key);
-			if (!def || !def.get || !def.set || !def.configurable) {
-				return null;
-			}
-			return def;
-		}
-
-		function vset(obj, key, val) {
-			Vue["set"] ? Vue["set"](obj, key, val) : (obj[key] = val);
-		}
-
-		// inject
-		if (options.inject) {
-			var objInject = options.inject;
-			for (var key in objInject) {
-				var orgKey = ComUtil.getOriginProvideKey(key);
-				if (!orgKey) {
-					continue;
-				}
-				// vset(objPropDefValueObj, key, objInject[key].default);
-				
-				((keyTmp, orgKeyTmp) => {
-					Object.defineProperty(local, orgKeyTmp, {
-						get: function get() {
-							try {
-								var md = vm[keyTmp];
-								return md && md.data;
-							} catch (ex) { }
-						},
-						set: function set(val) {
-							try {
-								var md = vm[keyTmp];
-								if (md && md.type == "inject") {
-									md.data = val;
-								}
-							} catch (ex) { }
-						},
-						configurable: true,
-						enumerable: true,
-					});
-				})(key, orgKey);
-			}
-		}
-
-		// props
-		var props = options.props || {};
-		// var vmProto = Object.getPrototypeOf(vm);
-		var objPropDefValueObj = vm[propDefaultValueKey] || (vm[propDefaultValueKey] = Vue.observable({}));
-		for (var key in props) {
-			if (typeof (props[key]) != "object" || !("default" in props[key])) {
-				continue;
-			}
-			vset(objPropDefValueObj, key, props[key].default);
-
-			// 在set选择器中判断该属性是否存在默认值
-			// 如果存在，说明该属性已经跟其他值绑定，拒绝初始化赋值
-			// 如果不存在，则赋予初始值，作为默认值
-			var oldDefine = getCheckDefine(local, key);
-			if (!oldDefine) {
-				continue;
-			}
-			arrOldDefine.push({ key: key, obj: oldDefine, });
-			(function (keyTmp, oldDefineTmp) {
-				Object.defineProperty(local, keyTmp, {
-					get: oldDefineTmp.get,
-					set: function (value) {
-						if (typeof (value) == "function") {
-							props[keyTmp].type = [Function, Object, Array, String, Number, Boolean];
-							props[keyTmp].default = value;
-						} else {
-							props[keyTmp].type = [Object, Array, String, Number, Boolean, Function];
-							props[keyTmp].default = () => value;
-						}
-						vset(objPropDefValueObj, keyTmp, value);
-						// cancel set default value if data bound
-						if (vm.$options && vm.$options.propsData && (keyTmp in vm.$options.propsData)) {
-							return;
-						}
-						oldDefineTmp.set.call(this, value);
-					}
-				});
-			})(key, oldDefine);
-		}
-	}
-}
-
-
 //class decorator
 export default function Comp<V extends Vue>(comps?: Record<string, VueComponent>, options?: ComponentOptionsComp<V>) {
+	const defaultValueKey = "_vd_vmDefaultData";
+
 	if (!options) {
 		options = {};
 	}
@@ -154,66 +32,10 @@ export default function Comp<V extends Vue>(comps?: Record<string, VueComponent>
 		var proto = UserComponent.prototype;
 		proto.unmounted && (proto.destroyed = proto.unmounted);
 		proto.beforeUnmount && (proto.beforeDestroy = proto.beforeUnmount);
-
-		class UserComponentProxy extends UserComponent {
-			// @ts-ignore
-			constructor() {
-				var param = new UserComponentProxyInitParam();
-				param.options = options;
-				param.oldInit = UserComponentProxy.prototype._init;
-				UserComponentProxy.prototype._init = createInitUserComponentProxy(param);
-
-				// proxy console.error
-				var defErr = console.error;
-				console.error = function () { };
-
-				super();
-
-				console.error = defErr;
-				UserComponentProxy.prototype._init = param.oldInit;
-
-				// reset proxy
-				if (param.local) {
-					var arrOldDefine = param.arrOldDefine;
-					for (var i = 0; i < arrOldDefine.length; ++i) {
-						Object.defineProperty(param.local, arrOldDefine[i].key, arrOldDefine[i].obj);
-					}
-				}
-			}
-		}
-		UserComponentProxy.prototype = UserComponent.prototype;
-		UserComponentProxy._componentTag = UserComponent.name;
-
-		function vset(obj, key, val) {
-			Vue["set"] ? Vue["set"](obj, key, val) : (obj[key] = val);
-		}
-
-		createDecorator(function (componentOptions, k) {
-			// provide
-			function makeProvide(vm, key) {
-				var orgKey = ComUtil.getOriginProvideKey(key);
-				return {
-					get data() { return vm[orgKey] },
-					set data(val) { vset(vm, orgKey, val); },
-					type: "provide"
-				};
-			}
-			if (options.provide && typeof (options.provide) == "object") {
-				var objProvide = options.provide;
-				var map = {};
-				options.provide = function (this: any) {
-					for (var key in objProvide) {
-						map[key] = makeProvide(this, key);
-					}
-					return map;
-				};
-				options.provide["originProvide"] = objProvide;
-			}
-		})(UserComponentProxy as any);
 		
 		// decorate options
-		var oldDecorators = UserComponentProxy.__decorators__;
-		oldDecorators && (UserComponentProxy.__decorators__ = [function() {
+		var oldDecorators = UserComponent.__decorators__;
+		oldDecorators && (UserComponent.__decorators__ = [function() {
 			oldDecorators.forEach(fn => fn(options));
 			
 			// unmounted / beforeUnmount
@@ -245,68 +67,133 @@ export default function Comp<V extends Vue>(comps?: Record<string, VueComponent>
 					}
 				}
 			}
-		}]);
 
-		var OriginVueComp = Component(options)(UserComponentProxy as any) as any;
+			// provide/inject实现双向通信
+			// 原始属性名添加前缀"_vd_"作为实际的provide/inject
+			// provide原始属性名改为data属性
+			// inject原始属性名改为computed属性
 
-		// prop
-		var props = options.props;
-		if (props) {
-			for (var key in props) {
-				if (typeof (props[key]) != "object") {
-					continue;
-				}
-				(function (keyTmp, propTmp) {
-					var oldDefine = Object.getOwnPropertyDescriptor(OriginVueComp.prototype, keyTmp);
-					if (!oldDefine) {
-						return;
+			// provide
+			var provide = options.provide;
+			if (provide && typeof (provide) == "object") {
+				options.provide = function (this: any) {
+					var local = this;
+					var rst = {};
+					for (var key in provide) {
+						(function (keyTmp) {
+							var orgKey = ComUtil.getOriginProvideKey(keyTmp);
+							rst[keyTmp] = {
+								get data() { return local[orgKey] },
+								set data(val) { ComUtil.vset(local, orgKey, val); },
+								type: "provide"
+							};
+						})(key);
 					}
-					Object.defineProperty(OriginVueComp.prototype, keyTmp, {
-						get: function () {
-							var rst = oldDefine.get.call(this);
-							var obj = this[propDefaultValueKey];
-							if (!this.$options || !this.$options.propsData || !(keyTmp in this.$options.propsData)) {
-								return obj ? obj[keyTmp] : undefined;
-							}
-							return rst;
-						},
-						set: function set(this: any, value) {
-							if (!this.$options || !this.$options.propsData || !(keyTmp in this.$options.propsData)) {
-								var obj = this[propDefaultValueKey] || (this[propDefaultValueKey] = Vue.observable({}));
-								obj && vset(obj, keyTmp, value);
-								return;
-							}
-							this.$emit("update:" + keyTmp, value);
-							// console.info("set2", keyTmp, value);
-						},
-						configurable: true,
-					});
-				})(key, props[key]);
+					return rst;
+				};
+				options.provide["originProvide"] = provide;
 			}
-		}
 
-		// inject
-		if (options.inject) {
-			var objInject = options.inject;
-			for (var key in objInject) {
-				((keyTmp) => {
-					var orgKey = ComUtil.getOriginProvideKey(key);
-					Object.defineProperty(OriginVueComp.prototype, orgKey, {
-						get: function get() {
+			// inject
+			var inject = options.inject || {};
+			for (var key in inject) {
+				(function (keyTmp) {
+					var orgKey = ComUtil.getOriginProvideKey(keyTmp);
+					// 将初始化值传入vm，防止@Component() 将属性绑定为data
+					Object.defineProperty(UserComponent.prototype, orgKey, {
+						get(this: any) {
 							var md = this[keyTmp];
 							return md && md.data;
 						},
-						set: function set(val) {
+						set(this: any, val) {
 							var md = this[keyTmp];
-							if (md) {
-								md.data = val;
+							// 已经绑定provide，忽略初始化数据
+							if (this._self && !this._self._data && md && md.type != "inject") {
+								return;
 							}
+							md && (md.data = val);
 						},
 						configurable: true,
 						enumerable: true,
 					});
+					// 将原始属性设置为computed
+					(options.computed || (options.computed = {}))[orgKey] = {
+						get(this: any) {
+							var md = this[keyTmp];
+							if (md && md.type != "inject") {
+								return md.data;
+							}
+							var obj = this[defaultValueKey] || (this[defaultValueKey] = ComUtil.reactive({}));
+							if (!(orgKey in obj)) {
+								ComUtil.vset(obj, orgKey, md && md.data);
+							}
+							return obj[orgKey];
+						},
+						set(this: any, val) {
+							var md = this[keyTmp];
+							if (md && md.type != "inject") {
+								md.data = val;
+								return;
+							}
+							var obj = this[defaultValueKey] || (this[defaultValueKey] = ComUtil.reactive({}));
+							ComUtil.vset(obj, orgKey, val);
+						}
+					};
 				})(key);
 			}
+		}]);
+
+		// VueComponent
+		//   |- UserComponent
+		//     |- Vue
+		// 
+		// VueComponent()							// Component
+		//   |- _init<Vue.extend>					// vue
+		//   |- mixins()							// vue
+		//   |- new UserComponent()					// Comp
+		//   |- Vue.constructor						// vue
+		//   |- _init<Comp>							// Comp
+		//   |- _init<Component>					// Component
+		//   |- UserComponent.constructor			// <self projct>
+		//  \|
+		var OriginVueComp = Component(options)(UserComponent as any) as any;
+
+		// prop
+		var props = options.props || {};
+		for (var key in props) {
+			if (typeof (props[key]) != "object") {
+				continue;
+			}
+			(function (keyTmp, valTmp) {
+				var oldDefine = Object.getOwnPropertyDescriptor(OriginVueComp.prototype, keyTmp);
+				oldDefine = oldDefine || { get() { return undefined; }, set(val) { } };
+				Object.defineProperty(OriginVueComp.prototype, keyTmp, {
+					get: function () {
+						if (!this.$options || !this.$options.propsData || !(keyTmp in this.$options.propsData)) {
+							var obj = this[defaultValueKey] || (this[defaultValueKey] = ComUtil.reactive({}));
+							if (!(keyTmp in obj)) {
+								ComUtil.vset(obj, keyTmp, valTmp && valTmp.default);
+							}
+							return obj[keyTmp];
+						}
+						return oldDefine.get.call(this);
+					},
+					set: function set(this: any, value) {
+						if (!this.$options || !this.$options.propsData || !(keyTmp in this.$options.propsData)) {
+							var obj = this[defaultValueKey] || (this[defaultValueKey] = ComUtil.reactive({}));
+							obj && ComUtil.vset(obj, keyTmp, value);
+							return;
+						}
+						// 已经绑定prop，忽略初始化数据
+						if (!this._data) {
+							return;
+						}
+						this.$emit("update:" + keyTmp, value);
+						// console.info("set2", keyTmp, value);
+					},
+					configurable: true,
+				});
+			})(key, props[key]);
 		}
 
 		return OriginVueComp;

@@ -16,7 +16,7 @@ export default function Provide() {
 		return createDecorator(function (componentOptions, k) {
 			var options = {
 				type: [Object, Array, String, Number, Boolean, Function],
-				default: Vue.observable({ data: undefined, type: "provide" })
+				default: ComUtil.reactive({ data: undefined, type: "provide" })
 			};
 			(componentOptions.provide || (componentOptions.provide = {}))[nkey] = options;
 		})(target, key);

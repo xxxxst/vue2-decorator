@@ -1,34 +1,5 @@
-import Vue from 'vue';
 import Component, { createDecorator } from 'vue-class-component';
-
-/*! *****************************************************************************
-Copyright (c) Microsoft Corporation.
-
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
-REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
-AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
-INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
-LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
-OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
-PERFORMANCE OF THIS SOFTWARE.
-***************************************************************************** */
-/* global Reflect, Promise */
-
-var extendStatics = function(d, b) {
-    extendStatics = Object.setPrototypeOf ||
-        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-        function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
-    return extendStatics(d, b);
-};
-
-function __extends(d, b) {
-    extendStatics(d, b);
-    function __() { this.constructor = d; }
-    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-}
+import Vue from 'vue';
 
 var ComUtil = (function () {
     function ComUtil() {
@@ -42,117 +13,18 @@ var ComUtil = (function () {
         }
         return key.substr(this.providePrefix.length);
     };
+    ComUtil.vset = function (obj, key, val) {
+        return Vue.set ? Vue.set(obj, key, val) : (obj[key] = val);
+    };
+    ComUtil.reactive = function (obj) {
+        return Vue.reactive ? Vue.reactive(obj) : Vue.observable(obj);
+    };
     ComUtil.providePrefix = "_vd_";
     return ComUtil;
 }());
 
-var UserComponentProxyInitParam = (function () {
-    function UserComponentProxyInitParam() {
-        this.local = null;
-        this.oldInit = null;
-        this.options = null;
-        this.arrOldDefine = [];
-    }
-    return UserComponentProxyInitParam;
-}());
-var propDefaultValueKey = "_vd_vmDefaultData";
-function createInitUserComponentProxy(data) {
-    return function _init() {
-        data.local = this;
-        var local = this;
-        var options = data.options;
-        var arrOldDefine = data.arrOldDefine;
-        var oldInit = data.oldInit;
-        var props = options.props || (options.props = {});
-        var propsSelfExist = ("_self" in props);
-        if (!propsSelfExist) {
-            props["_self"] = {
-                type: [Object, Array, String, Number, Boolean, Function],
-                default: undefined,
-            };
-        }
-        oldInit.apply(this, arguments);
-        var vm = this._self;
-        if (!propsSelfExist) {
-            delete props["_self"];
-        }
-        function getCheckDefine(obj, key) {
-            var def = Object.getOwnPropertyDescriptor(obj, key);
-            if (!def || !def.get || !def.set || !def.configurable) {
-                return null;
-            }
-            return def;
-        }
-        function vset(obj, key, val) {
-            Vue["set"] ? Vue["set"](obj, key, val) : (obj[key] = val);
-        }
-        if (options.inject) {
-            var objInject = options.inject;
-            for (var key in objInject) {
-                var orgKey = ComUtil.getOriginProvideKey(key);
-                if (!orgKey) {
-                    continue;
-                }
-                (function (keyTmp, orgKeyTmp) {
-                    Object.defineProperty(local, orgKeyTmp, {
-                        get: function get() {
-                            try {
-                                var md = vm[keyTmp];
-                                return md && md.data;
-                            }
-                            catch (ex) { }
-                        },
-                        set: function set(val) {
-                            try {
-                                var md = vm[keyTmp];
-                                if (md && md.type == "inject") {
-                                    md.data = val;
-                                }
-                            }
-                            catch (ex) { }
-                        },
-                        configurable: true,
-                        enumerable: true,
-                    });
-                })(key, orgKey);
-            }
-        }
-        var props = options.props || {};
-        var objPropDefValueObj = vm[propDefaultValueKey] || (vm[propDefaultValueKey] = Vue.observable({}));
-        for (var key in props) {
-            if (typeof (props[key]) != "object" || !("default" in props[key])) {
-                continue;
-            }
-            vset(objPropDefValueObj, key, props[key].default);
-            var oldDefine = getCheckDefine(local, key);
-            if (!oldDefine) {
-                continue;
-            }
-            arrOldDefine.push({ key: key, obj: oldDefine, });
-            (function (keyTmp, oldDefineTmp) {
-                Object.defineProperty(local, keyTmp, {
-                    get: oldDefineTmp.get,
-                    set: function (value) {
-                        if (typeof (value) == "function") {
-                            props[keyTmp].type = [Function, Object, Array, String, Number, Boolean];
-                            props[keyTmp].default = value;
-                        }
-                        else {
-                            props[keyTmp].type = [Object, Array, String, Number, Boolean, Function];
-                            props[keyTmp].default = function () { return value; };
-                        }
-                        vset(objPropDefValueObj, keyTmp, value);
-                        if (vm.$options && vm.$options.propsData && (keyTmp in vm.$options.propsData)) {
-                            return;
-                        }
-                        oldDefineTmp.set.call(this, value);
-                    }
-                });
-            })(key, oldDefine);
-        }
-    };
-}
 function Comp(comps, options) {
+    var defaultValueKey = "_vd_vmDefaultData";
     if (!options) {
         options = {};
     }
@@ -163,57 +35,8 @@ function Comp(comps, options) {
         var proto = UserComponent.prototype;
         proto.unmounted && (proto.destroyed = proto.unmounted);
         proto.beforeUnmount && (proto.beforeDestroy = proto.beforeUnmount);
-        var UserComponentProxy = (function (_super) {
-            __extends(UserComponentProxy, _super);
-            function UserComponentProxy() {
-                var _this = this;
-                var param = new UserComponentProxyInitParam();
-                param.options = options;
-                param.oldInit = UserComponentProxy.prototype._init;
-                UserComponentProxy.prototype._init = createInitUserComponentProxy(param);
-                var defErr = console.error;
-                console.error = function () { };
-                _this = _super.call(this) || this;
-                console.error = defErr;
-                UserComponentProxy.prototype._init = param.oldInit;
-                if (param.local) {
-                    var arrOldDefine = param.arrOldDefine;
-                    for (var i = 0; i < arrOldDefine.length; ++i) {
-                        Object.defineProperty(param.local, arrOldDefine[i].key, arrOldDefine[i].obj);
-                    }
-                }
-                return _this;
-            }
-            return UserComponentProxy;
-        }(UserComponent));
-        UserComponentProxy.prototype = UserComponent.prototype;
-        UserComponentProxy._componentTag = UserComponent.name;
-        function vset(obj, key, val) {
-            Vue["set"] ? Vue["set"](obj, key, val) : (obj[key] = val);
-        }
-        createDecorator(function (componentOptions, k) {
-            function makeProvide(vm, key) {
-                var orgKey = ComUtil.getOriginProvideKey(key);
-                return {
-                    get data() { return vm[orgKey]; },
-                    set data(val) { vset(vm, orgKey, val); },
-                    type: "provide"
-                };
-            }
-            if (options.provide && typeof (options.provide) == "object") {
-                var objProvide = options.provide;
-                var map = {};
-                options.provide = function () {
-                    for (var key in objProvide) {
-                        map[key] = makeProvide(this, key);
-                    }
-                    return map;
-                };
-                options.provide["originProvide"] = objProvide;
-            }
-        })(UserComponentProxy);
-        var oldDecorators = UserComponentProxy.__decorators__;
-        oldDecorators && (UserComponentProxy.__decorators__ = [function () {
+        var oldDecorators = UserComponent.__decorators__;
+        oldDecorators && (UserComponent.__decorators__ = [function () {
                 oldDecorators.forEach(function (fn) { return fn(options); });
                 var optTmp = options;
                 if (optTmp.unmounted) {
@@ -241,62 +64,103 @@ function Comp(comps, options) {
                         }
                     }
                 }
-            }]);
-        var OriginVueComp = Component(options)(UserComponentProxy);
-        var props = options.props;
-        if (props) {
-            for (var key in props) {
-                if (typeof (props[key]) != "object") {
-                    continue;
+                var provide = options.provide;
+                if (provide && typeof (provide) == "object") {
+                    options.provide = function () {
+                        var local = this;
+                        var rst = {};
+                        for (var key in provide) {
+                            (function (keyTmp) {
+                                var orgKey = ComUtil.getOriginProvideKey(keyTmp);
+                                rst[keyTmp] = {
+                                    get data() { return local[orgKey]; },
+                                    set data(val) { ComUtil.vset(local, orgKey, val); },
+                                    type: "provide"
+                                };
+                            })(key);
+                        }
+                        return rst;
+                    };
+                    options.provide["originProvide"] = provide;
                 }
-                (function (keyTmp, propTmp) {
-                    var oldDefine = Object.getOwnPropertyDescriptor(OriginVueComp.prototype, keyTmp);
-                    if (!oldDefine) {
-                        return;
-                    }
-                    Object.defineProperty(OriginVueComp.prototype, keyTmp, {
-                        get: function () {
-                            var rst = oldDefine.get.call(this);
-                            var obj = this[propDefaultValueKey];
-                            if (!this.$options || !this.$options.propsData || !(keyTmp in this.$options.propsData)) {
-                                return obj ? obj[keyTmp] : undefined;
+                var inject = options.inject || {};
+                for (var key in inject) {
+                    (function (keyTmp) {
+                        var orgKey = ComUtil.getOriginProvideKey(keyTmp);
+                        Object.defineProperty(UserComponent.prototype, orgKey, {
+                            get: function () {
+                                var md = this[keyTmp];
+                                return md && md.data;
+                            },
+                            set: function (val) {
+                                var md = this[keyTmp];
+                                if (this._self && !this._self._data && md && md.type != "inject") {
+                                    return;
+                                }
+                                md && (md.data = val);
+                            },
+                            configurable: true,
+                            enumerable: true,
+                        });
+                        (options.computed || (options.computed = {}))[orgKey] = {
+                            get: function () {
+                                var md = this[keyTmp];
+                                if (md && md.type != "inject") {
+                                    return md.data;
+                                }
+                                var obj = this[defaultValueKey] || (this[defaultValueKey] = ComUtil.reactive({}));
+                                if (!(orgKey in obj)) {
+                                    ComUtil.vset(obj, orgKey, md && md.data);
+                                }
+                                return obj[orgKey];
+                            },
+                            set: function (val) {
+                                var md = this[keyTmp];
+                                if (md && md.type != "inject") {
+                                    md.data = val;
+                                    return;
+                                }
+                                var obj = this[defaultValueKey] || (this[defaultValueKey] = ComUtil.reactive({}));
+                                ComUtil.vset(obj, orgKey, val);
                             }
-                            return rst;
-                        },
-                        set: function set(value) {
-                            if (!this.$options || !this.$options.propsData || !(keyTmp in this.$options.propsData)) {
-                                var obj = this[propDefaultValueKey] || (this[propDefaultValueKey] = Vue.observable({}));
-                                obj && vset(obj, keyTmp, value);
-                                return;
-                            }
-                            this.$emit("update:" + keyTmp, value);
-                        },
-                        configurable: true,
-                    });
-                })(key, props[key]);
+                        };
+                    })(key);
+                }
+            }]);
+        var OriginVueComp = Component(options)(UserComponent);
+        var props = options.props || {};
+        for (var key in props) {
+            if (typeof (props[key]) != "object") {
+                continue;
             }
-        }
-        if (options.inject) {
-            var objInject = options.inject;
-            for (var key in objInject) {
-                (function (keyTmp) {
-                    var orgKey = ComUtil.getOriginProvideKey(key);
-                    Object.defineProperty(OriginVueComp.prototype, orgKey, {
-                        get: function get() {
-                            var md = this[keyTmp];
-                            return md && md.data;
-                        },
-                        set: function set(val) {
-                            var md = this[keyTmp];
-                            if (md) {
-                                md.data = val;
+            (function (keyTmp, valTmp) {
+                var oldDefine = Object.getOwnPropertyDescriptor(OriginVueComp.prototype, keyTmp);
+                oldDefine = oldDefine || { get: function () { return undefined; }, set: function (val) { } };
+                Object.defineProperty(OriginVueComp.prototype, keyTmp, {
+                    get: function () {
+                        if (!this.$options || !this.$options.propsData || !(keyTmp in this.$options.propsData)) {
+                            var obj = this[defaultValueKey] || (this[defaultValueKey] = ComUtil.reactive({}));
+                            if (!(keyTmp in obj)) {
+                                ComUtil.vset(obj, keyTmp, valTmp && valTmp.default);
                             }
-                        },
-                        configurable: true,
-                        enumerable: true,
-                    });
-                })(key);
-            }
+                            return obj[keyTmp];
+                        }
+                        return oldDefine.get.call(this);
+                    },
+                    set: function set(value) {
+                        if (!this.$options || !this.$options.propsData || !(keyTmp in this.$options.propsData)) {
+                            var obj = this[defaultValueKey] || (this[defaultValueKey] = ComUtil.reactive({}));
+                            obj && ComUtil.vset(obj, keyTmp, value);
+                            return;
+                        }
+                        if (!this._data) {
+                            return;
+                        }
+                        this.$emit("update:" + keyTmp, value);
+                    },
+                    configurable: true,
+                });
+            })(key, props[key]);
         }
         return OriginVueComp;
     };
@@ -309,7 +173,7 @@ function Inject(provideName) {
         return createDecorator(function (componentOptions, k) {
             var options = {
                 from: nkeyProvide,
-                default: Vue.observable({ data: undefined, type: "inject" }),
+                default: ComUtil.reactive({ data: undefined, type: "inject" }),
             };
             (componentOptions.inject || (componentOptions.inject = {}))[nkeyInject] = options;
         })(target, key);
@@ -351,7 +215,7 @@ function Provide() {
         return createDecorator(function (componentOptions, k) {
             var options = {
                 type: [Object, Array, String, Number, Boolean, Function],
-                default: Vue.observable({ data: undefined, type: "provide" })
+                default: ComUtil.reactive({ data: undefined, type: "provide" })
             };
             (componentOptions.provide || (componentOptions.provide = {}))[nkey] = options;
         })(target, key);
@@ -360,6 +224,7 @@ function Provide() {
 
 var DEEP = 0x1;
 var IMMEDIATE = 0x2;
+var SYNC = 0x4;
 function Watch(option) {
     return function (target, key, descriptor) {
         var name = "";
@@ -395,6 +260,9 @@ function Watch(option) {
             if (option & IMMEDIATE) {
                 tmp.immediate = true;
             }
+            if (option & SYNC) {
+                tmp.sync = true;
+            }
         }
         tmp.handler = descriptor.value;
         return createDecorator(function (componentOptions, k) {
@@ -421,27 +289,22 @@ function State(attrName) {
     function create(target, key) {
         var name = attrName || key;
         name = name.trim();
-        var getVal = null;
-        var setVal = null;
         var ch = ".";
         if (name.charAt(0) == "[") {
             ch = "";
         }
-        getVal = eval("(function() { return this.$store.state" + ch + name + "; })");
-        setVal = eval("(function(val) { this.$store.state" + ch + name + "=val; })");
-        function initAttr(obj) {
-            Object.defineProperty(obj, key, {
-                enumerable: true,
-                configurable: true,
-                get: function () { return getVal.call(obj); },
-                set: function (value) { setVal.call(obj, value); },
-            });
-        }
+        var getVal = eval("(function() { return this.$store.state" + ch + name + "; })");
+        var setVal = eval("(function(val) { this.$store.state" + ch + name + "=val; })");
         createDecorator(function (componentOptions, handler) {
             var mixins = componentOptions.mixins || (componentOptions.mixins = []);
             mixins.push({
                 data: function () {
-                    initAttr(this);
+                    Object.defineProperty(this, key, {
+                        enumerable: true,
+                        configurable: true,
+                        get: getVal,
+                        set: setVal,
+                    });
                     return {};
                 }
             });
@@ -450,5 +313,5 @@ function State(attrName) {
     return create;
 }
 
-export { Comp, DEEP, IMMEDIATE, Inject, Model, Prop, Provide, State, Watch };
+export { Comp, DEEP, IMMEDIATE, Inject, Model, Prop, Provide, SYNC, State, Watch };
 //# sourceMappingURL=vue2-decorator.esm.js.map

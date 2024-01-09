@@ -18,7 +18,7 @@ export default function Inject(provideName?: string) {
 		return createDecorator(function (componentOptions, k) {
 			var options = {
 				from: nkeyProvide,
-				default: Vue.observable({ data: undefined, type: "inject" }),
+				default: ComUtil.reactive({ data: undefined, type: "inject" }),
 			};
 			(componentOptions.inject || (componentOptions.inject = {}))[nkeyInject] = options;
 		})(target, key);

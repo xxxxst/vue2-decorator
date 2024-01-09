@@ -20,10 +20,7 @@ export default function Model() {
 				default: undefined
 			};
 
-			// var copt = componentOptions as any;
-
 			(componentOptions.props || (componentOptions.props = {}))[k] = options;
-			// (componentOptions.model || (componentOptions.model = {}))[k] = { prop: k, event: keyFun };
 			if (k == "modelValue" || !componentOptions.model) {
 				componentOptions.model = { prop: k, event: keyFun };
 			}

@@ -22,8 +22,9 @@ interface WathOption {
 }
 declare const DEEP = 1;
 declare const IMMEDIATE = 2;
+declare const SYNC = 4;
 declare function Watch(option?: WathOption | number): (target: Vue, key: string, descriptor: any) => void;
 
 declare function State(attrName?: string): (target: Vue, key: string) => void;
 
-export { Comp, DEEP, IMMEDIATE, Inject, Model, Prop, Provide, State, Watch };
+export { Comp, DEEP, IMMEDIATE, Inject, Model, Prop, Provide, SYNC, State, Watch };
